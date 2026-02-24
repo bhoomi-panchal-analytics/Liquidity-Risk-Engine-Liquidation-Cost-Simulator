@@ -3,6 +3,7 @@
 import streamlit as st
 import numpy as np
 import pandas as pd
+from datetime import datetime, timedelta
 
 from src.data_loader import fetch_multiple_tickers
 from src.data_cleaner import clean_data
@@ -13,26 +14,56 @@ from src.metrics import (
     compute_spread_proxy
 )
 from src.liquidation_simulator import simulate_liquidation
-from src.almgren_chriss import optimal_execution_schedule
-from src.monte_carlo import monte_carlo_liquidation_cost
 
 
 st.set_page_config(page_title="Liquidity Risk Engine", layout="wide")
-
 st.title("Liquidity Risk Engine – Cost of Liquidation Simulator")
 
-# -----------------------------
-# Sidebar Inputs
-# -----------------------------
+
+# ----------------------------------------------------
+# TICKER UNIVERSE (20 NSE STOCKS)
+# ----------------------------------------------------
+
+TICKER_LIST = [
+    "RELIANCE.NS", "TCS.NS", "INFY.NS", "HDFCBANK.NS",
+    "ICICIBANK.NS", "HINDUNILVR.NS", "ITC.NS", "SBIN.NS",
+    "BHARTIARTL.NS", "KOTAKBANK.NS", "LT.NS", "AXISBANK.NS",
+    "BAJFINANCE.NS", "MARUTI.NS", "ASIANPAINT.NS",
+    "TITAN.NS", "WIPRO.NS", "ULTRACEMCO.NS",
+    "SUNPHARMA.NS", "NESTLEIND.NS"
+]
+
+
+# ----------------------------------------------------
+# CACHE DATA FETCH
+# ----------------------------------------------------
+
+@st.cache_data(show_spinner=True)
+def load_data():
+    return fetch_multiple_tickers(TICKER_LIST)
+
+
+try:
+    data_dict = load_data()
+except Exception as e:
+    st.error(f"Data Fetch Failed: {str(e)}")
+    st.stop()
+
+
+# ----------------------------------------------------
+# SIDEBAR INPUTS
+# ----------------------------------------------------
 
 st.sidebar.header("Input Parameters")
 
-ticker = st.sidebar.text_input("Stock Ticker", "RELIANCE.NS")
-position_size = st.sidebar.number_input("Total Shares to Liquidate", value=500000)
+selected_ticker = st.sidebar.selectbox(
+    "Select Stock",
+    list(data_dict.keys())
+)
 
-execution_mode = st.sidebar.selectbox(
-    "Execution Method",
-    ["Participation-Based", "Almgren–Chriss Optimal"]
+position_size = st.sidebar.number_input(
+    "Total Shares to Liquidate",
+    value=500000
 )
 
 participation_rate = st.sidebar.slider(
@@ -52,34 +83,17 @@ adv_multiplier = st.sidebar.slider(
 
 run_button = st.sidebar.button("Run Simulation")
 
-# -----------------------------
-# Main Execution Block
-# -----------------------------
+
+# ----------------------------------------------------
+# MAIN EXECUTION
+# ----------------------------------------------------
 
 if run_button:
 
     try:
-        # -------------------------
-        # Load and Prepare Data
-        # -------------------------
+        data = data_dict[selected_ticker].copy()
 
-        TICKER_LIST = [
-            "RELIANCE.NS", "TCS.NS", "INFY.NS", "HDFCBANK.NS",
-            "ICICIBANK.NS", "HINDUNILVR.NS", "ITC.NS", "SBIN.NS",
-            "BHARTIARTL.NS", "KOTAKBANK.NS", "LT.NS", "AXISBANK.NS",
-            "BAJFINANCE.NS", "MARUTI.NS", "ASIANPAINT.NS",
-            "TITAN.NS", "WIPRO.NS", "ULTRACEMCO.NS",
-            "SUNPHARMA.NS", "NESTLEIND.NS"
-        ]
-
-        data_dict = fetch_multiple_tickers(TICKER_LIST)
-
-        selected_ticker = st.sidebar.selectbox(
-            "Select Stock",
-            list(data_dict.keys())
-        )
-
-data = data_dict[selected_ticker]
+        # Clean & Compute Metrics
         data = clean_data(data)
         data = compute_returns(data)
         data = compute_adv(data)
@@ -89,10 +103,10 @@ data = data_dict[selected_ticker]
         data = data.dropna()
 
         if len(data) < 30:
-            st.error("Not enough historical data.")
+            st.error("Insufficient processed data.")
             st.stop()
 
-        # Apply Stress
+        # Apply stress
         data["Volatility"] *= vol_multiplier
         data["ADV"] *= adv_multiplier
 
@@ -100,80 +114,35 @@ data = data_dict[selected_ticker]
         current_volatility = data["Volatility"].iloc[-1]
         current_adv = data["ADV"].iloc[-1]
 
-        # -------------------------
-        # Execution Schedule
-        # -------------------------
-
-        if execution_mode == "Participation-Based":
-
-            sim_results = simulate_liquidation(
-                data,
-                total_shares=position_size,
-                participation_rate=participation_rate
-            )
-
-            schedule = sim_results[["SharesTraded"]].copy()
-            total_cost = sim_results["TotalCost"].sum()
-            horizon_days = len(sim_results)
-
-        else:
-
-            horizon_days = 10
-
-            schedule = optimal_execution_schedule(
-                total_shares=position_size,
-                days=horizon_days,
-                volatility=current_volatility,
-                eta=1.0,
-                risk_aversion=0.01
-            )
-
-            # Approximate deterministic cost
-            total_cost = 0
-            for shares in schedule["SharesTraded"]:
-                participation = shares / current_adv
-                impact = current_volatility * np.sqrt(participation)
-                total_cost += shares * (impact + 0.001 * current_price)
-
-        # -------------------------
-        # Monte Carlo Simulation
-        # -------------------------
-
-        mc_costs = monte_carlo_liquidation_cost(
-            S0=current_price,
-            mu=0,
-            sigma=current_volatility,
-            schedule=schedule,
-            simulations=1000
+        # Liquidation Simulation
+        sim_results = simulate_liquidation(
+            data,
+            total_shares=position_size,
+            participation_rate=participation_rate
         )
 
-        expected_execution_value = mc_costs.mean()
-        worst_5pct = np.percentile(mc_costs, 5)
+        total_cost = sim_results["TotalCost"].sum()
+        horizon_days = len(sim_results)
 
-        # -------------------------
-        # Output Section
-        # -------------------------
+        # ------------------------------------------------
+        # OUTPUT
+        # ------------------------------------------------
 
         st.subheader("Execution Summary")
 
         col1, col2, col3 = st.columns(3)
 
         col1.metric("Current Price", f"₹ {round(current_price,2)}")
-        col2.metric("Estimated Deterministic Cost", f"₹ {round(total_cost,2)}")
+        col2.metric("Estimated Liquidation Cost", f"₹ {round(total_cost,2)}")
         col3.metric("Liquidation Horizon (Days)", horizon_days)
 
-        st.subheader("Monte Carlo Execution Risk")
+        st.subheader("Shares Traded Per Day")
+        st.line_chart(sim_results.set_index("Date")["SharesTraded"])
 
-        col4, col5 = st.columns(2)
+        sim_results["CumulativeCost"] = sim_results["TotalCost"].cumsum()
 
-        col4.metric("Expected Execution Value", f"₹ {round(expected_execution_value,2)}")
-        col5.metric("5% Worst Outcome", f"₹ {round(worst_5pct,2)}")
-
-        st.subheader("Execution Cost Distribution")
-        st.bar_chart(pd.DataFrame(mc_costs))
-
-        st.subheader("Shares Traded per Day")
-        st.line_chart(schedule["SharesTraded"])
+        st.subheader("Cumulative Execution Cost")
+        st.line_chart(sim_results.set_index("Date")["CumulativeCost"])
 
     except Exception as e:
-        st.error(f"Error: {str(e)}")
+        st.error(f"Execution Failed: {str(e)}")
