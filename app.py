@@ -95,15 +95,11 @@ if run_button:
 
     # ---------------- Visualizations ----------------
 
-    colA, colB = st.columns(2)
-    colA.pyplot(plot_shares_traded(sim_results))
-    colB.pyplot(plot_cumulative_cost(sim_results))
-
-    colC, colD = st.columns(2)
-    colC.pyplot(plot_cost_distribution(mc_costs))
-    colD.pyplot(plot_participation_sensitivity(data, position_size, simulate_liquidation))
-
-    st.pyplot(plot_adv_vs_position(current_adv, position_size))
+    st.pyplot(plot_shares_traded(sim_results))
+    st.pyplot(plot_cumulative_cost(sim_results))
+    st.pyplot(plot_cost_distribution(mc_costs))
+    st.pyplot(plot_participation_sensitivity(simulate_liquidation, data, position_size))
+    st.pyplot(plot_adv_pressure(current_adv, position_size))
 
     # ---------------- Interpretation ----------------
 
