@@ -4,7 +4,7 @@ import streamlit as st
 import numpy as np
 import pandas as pd
 
-from src.data_loader import fetch_stock_data
+from src.data_loader import fetch_multiple_tickers
 from src.data_cleaner import clean_data
 from src.metrics import (
     compute_returns,
