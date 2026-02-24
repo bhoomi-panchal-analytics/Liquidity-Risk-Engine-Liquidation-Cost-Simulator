@@ -194,3 +194,249 @@ Streamlit App Features
 • Line chart of cumulative cost
 
 • Sensitivity analysis plots
+
+
+## Motivation
+
+Traditional valuation assumes positions can be liquidated at current market prices. This assumption fails for large institutional holdings.
+
+Execution introduces:
+
+* Bid-ask spread costs
+* Temporary market impact
+* Permanent price impact
+* Timing risk due to volatility
+* Liquidity regime dependence
+
+This project models these effects explicitly.
+
+---
+
+## Problem Statement
+
+Given:
+
+* A large stock position
+* Average Daily Volume (ADV)
+* Bid-Ask spread
+* Daily volatility
+
+Estimate:
+
+1. Expected liquidation cost
+2. Optimal execution trajectory
+3. Stress-adjusted execution cost
+4. Liquidity-adjusted Value-at-Risk
+
+---
+
+## Mathematical Framework
+
+### 1. Temporary Market Impact (Square-Root Model)
+
+Empirical evidence suggests market impact scales sub-linearly:
+
+Impact per share ∝ σ √(Q / ADV)
+
+Where:
+
+* Q = shares traded
+* ADV = average daily volume
+* σ = daily volatility
+
+Total impact cost:
+
+Impact Cost = Q × k σ √(Q / ADV)
+
+k = impact coefficient
+
+---
+
+### 2. Spread Cost
+
+Spread Cost ≈ (Bid-Ask Spread / 2) × Shares
+
+---
+
+### 3. Total Execution Cost
+
+Total Cost = Spread Cost + Temporary Impact Cost
+
+---
+
+### 4. Optimal Execution (Almgren–Chriss Model)
+
+Minimize:
+
+E(Cost) + λ Var(Cost)
+
+Where:
+
+* λ = risk aversion parameter
+* Higher λ → faster execution
+* Lower λ → slower execution
+
+Closed-form optimal trajectory:
+
+x(t) = X₀ sinh(κ(T − t)) / sinh(κT)
+
+Where:
+
+κ² = (λ σ²) / η
+
+η = temporary impact parameter
+
+---
+
+### 5. Monte Carlo Simulation
+
+Price evolution modeled via Geometric Brownian Motion:
+
+S(t+1) = S(t) exp[(μ − 0.5σ²)Δt + σ√Δt ε]
+
+This enables:
+
+* Distribution of execution outcomes
+* Expected liquidation value
+* Worst-case execution scenarios
+
+---
+
+### 6. Liquidity-Adjusted Value-at-Risk (L-VaR)
+
+Traditional VaR:
+
+VaR = z σ √T × Position Value
+
+Liquidity-Adjusted VaR:
+
+L-VaR = Market VaR + Expected Liquidation Cost
+
+This captures execution friction in downside risk.
+
+---
+
+## Project Structure
+
+```
+liquidity-risk-engine/
+│
+├── data/
+│   ├── raw/
+│   └── processed/
+│
+├── src/
+│   ├── data_loader.py
+│   ├── data_cleaner.py
+│   ├── metrics.py
+│   ├── impact_model.py
+│   ├── liquidation_simulator.py
+│   ├── almgren_chriss.py
+│   ├── sensitivity.py
+│   ├── liquidity_var.py
+│   ├── monte_carlo.py
+│   └── logger.py
+│
+├── app.py
+├── config.py
+├── requirements.txt
+└── README.md
+```
+
+---
+
+## Features
+
+* Rolling ADV and volatility computation
+* Participation-rate constrained liquidation
+* Stress scenarios (volatility ↑, ADV ↓)
+* Optimal execution schedule
+* Monte Carlo execution risk simulation
+* Liquidity-adjusted VaR computation
+* Interactive Streamlit dashboard
+
+---
+
+## Streamlit Dashboard
+
+The interface allows:
+
+* Ticker selection
+* Position size input
+* Participation rate adjustment
+* Volatility & liquidity stress toggles
+* Visualization of liquidation schedule
+* Sensitivity analysis
+* Execution risk distribution
+
+Run with:
+
+```
+pip install -r requirements.txt
+streamlit run app.py
+```
+
+---
+
+## Stress Testing
+
+Crisis simulation allows:
+
+* Volatility multiplier
+* ADV contraction
+* Spread widening
+
+Liquidity risk increases convexly under stress.
+
+---
+
+## Key Insights
+
+* Execution cost grows non-linearly with participation rate
+* Liquidity risk is regime-dependent
+* Volatility amplifies impact
+* Optimal execution balances impact vs timing risk
+* Liquidity-adjusted VaR captures hidden downside exposure
+
+---
+
+## Limitations
+
+* Constant volatility assumption
+* No intraday modeling
+* No limit order book depth modeling
+* Impact coefficients not empirically calibrated
+* No regime-switching volatility
+
+Future improvements may include:
+
+* GARCH volatility modeling
+* Markov regime-switch model
+* Order book depth modeling
+* Empirical calibration using trade-level data
+
+---
+
+## Applications
+
+* Portfolio risk management
+* Block trade execution planning
+* Liquidity stress testing
+* Hedge fund risk analysis
+* Institutional execution research
+
+---
+
+## Author Positioning
+
+This project demonstrates:
+
+* Market microstructure understanding
+  
+* Execution cost modeling
+  
+* Risk-adjusted optimization
+* Quantitative simulation techniques
+* Financial risk engineering
+
+---
