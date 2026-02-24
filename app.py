@@ -63,7 +63,23 @@ if run_button:
         # Load and Prepare Data
         # -------------------------
 
-        data = fetch_stock_data(ticker)
+        TICKER_LIST = [
+            "RELIANCE.NS", "TCS.NS", "INFY.NS", "HDFCBANK.NS",
+            "ICICIBANK.NS", "HINDUNILVR.NS", "ITC.NS", "SBIN.NS",
+            "BHARTIARTL.NS", "KOTAKBANK.NS", "LT.NS", "AXISBANK.NS",
+            "BAJFINANCE.NS", "MARUTI.NS", "ASIANPAINT.NS",
+            "TITAN.NS", "WIPRO.NS", "ULTRACEMCO.NS",
+            "SUNPHARMA.NS", "NESTLEIND.NS"
+        ]
+
+        data_dict = fetch_multiple_tickers(TICKER_LIST)
+
+        selected_ticker = st.sidebar.selectbox(
+            "Select Stock",
+            list(data_dict.keys())
+        )
+
+data = data_dict[selected_ticker]
         data = clean_data(data)
         data = compute_returns(data)
         data = compute_adv(data)
