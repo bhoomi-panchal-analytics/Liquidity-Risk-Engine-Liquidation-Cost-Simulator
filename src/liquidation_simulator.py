@@ -1,50 +1,43 @@
-# src/liquidation_simulator.py
+# liquidation_simulator.py
 
 import pandas as pd
-from src.impact_model import compute_total_cost
+import numpy as np
 
 
 def simulate_liquidation(df, total_shares, participation_rate):
 
-    remaining_shares = total_shares
+    remaining = total_shares
     results = []
 
     for _, row in df.iterrows():
 
-        if remaining_shares <= 0:
+        if remaining <= 0:
             break
 
-        daily_adv = row.get("ADV", 0)
-        daily_vol = row.get("Volatility", 0)
-        spread = row.get("SpreadProxy", 0)
-        price = row.get("Close", 0)
-        date = row.get("Date", None)
+        adv = row["ADV"]
+        vol = row["Volatility"]
+        spread = row["SpreadProxy"]
+        price = row["Close"]
 
-        if pd.isna(daily_adv) or daily_adv <= 0:
+        if pd.isna(adv) or adv <= 0:
             continue
 
-        max_shares_today = participation_rate * daily_adv
-        shares_traded = min(remaining_shares, max_shares_today)
+        max_trade = participation_rate * adv
+        trade = min(remaining, max_trade)
 
-        if shares_traded <= 0:
+        if trade <= 0:
             continue
 
-        cost_dict = compute_total_cost(
-            shares_traded,
-            price,
-            daily_adv,
-            daily_vol,
-            spread
-        )
+        impact = vol * np.sqrt(trade / adv)
+        spread_cost = spread * price * 0.5
 
-        cost_dict["Date"] = date
-        cost_dict["SharesTraded"] = shares_traded
+        total_cost = trade * (impact + spread_cost)
 
-        results.append(cost_dict)
+        results.append({
+            "SharesTraded": trade,
+            "TotalCost": total_cost
+        })
 
-        remaining_shares -= shares_traded
-
-    if len(results) == 0:
-        return pd.DataFrame(columns=["Date", "SharesTraded", "TotalCost"])
+        remaining -= trade
 
     return pd.DataFrame(results)
