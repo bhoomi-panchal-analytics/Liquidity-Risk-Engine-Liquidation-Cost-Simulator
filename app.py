@@ -65,3 +65,16 @@ if st.sidebar.button("Run Simulation"):
 
     sens_df.set_index("ParticipationRate", inplace=True)
     st.line_chart(sens_df["TotalCost"])
+    
+from src.monte_carlo import monte_carlo_liquidation_cost
+
+mc_costs = monte_carlo_liquidation_cost(
+    S0=current_price,
+    mu=0,
+    sigma=current_volatility,
+    schedule=optimal_schedule,
+    simulations=1000
+)
+
+expected_cost = mc_costs.mean()
+worst_5pct = np.percentile(mc_costs, 5)
