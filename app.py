@@ -32,6 +32,9 @@ if st.sidebar.button("Run Simulation"):
 
     data = data.dropna()
 
+    current_price = data["Close"].iloc[-1]
+    current_volatility = data["Volatility"].iloc[-1]
+
     # Apply Stress
     data = stress_scenario(data, vol_multiplier, adv_multiplier)
 
