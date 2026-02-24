@@ -35,6 +35,16 @@ if st.sidebar.button("Run Simulation"):
     current_price = data["Close"].iloc[-1]
     current_volatility = data["Volatility"].iloc[-1]
 
+    from src.monte_carlo import monte_carlo_liquidation_cost
+
+    mc_costs = monte_carlo_liquidation_cost(
+        S0=current_price,
+        mu=0,
+        sigma=current_volatility,
+        schedule=optimal_schedule,
+        simulations=1000
+    )
+
     # Apply Stress
     data = stress_scenario(data, vol_multiplier, adv_multiplier)
 
