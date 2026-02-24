@@ -1,7 +1,7 @@
 # src/monte_carlo.py
 
 import numpy as np
-import pandas as pd
+
 
 def simulate_price_paths(S0, mu, sigma, days, simulations=1000):
 
@@ -17,3 +17,23 @@ def simulate_price_paths(S0, mu, sigma, days, simulations=1000):
         )
 
     return paths
+
+
+def monte_carlo_liquidation_cost(S0, mu, sigma,
+                                 schedule,
+                                 simulations=1000):
+
+    days = len(schedule)
+    price_paths = simulate_price_paths(
+        S0, mu, sigma, days, simulations
+    )
+
+    total_costs = np.zeros(simulations)
+
+    for i in range(simulations):
+        for t in range(days):
+            price = price_paths[t][i]
+            shares = schedule["SharesTraded"].iloc[t]
+            total_costs[i] += shares * price
+
+    return total_costs
